@@ -2,11 +2,6 @@ ESX = nil
 
 ESX = exports["es_extended"]:getSharedObject()
 
-RegisterServerEvent('tg_carwash:checkmoney')
-AddEventHandler('tg_carwash:checkmoney', function(amount)
-    
-end)
-
 ESX.RegisterServerCallback('tg_carwash:checkmoney', function(player, cb)
     local xPlayer = ESX.GetPlayerFromId(player)
 

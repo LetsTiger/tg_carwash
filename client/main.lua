@@ -42,7 +42,7 @@ CreateThread(function()
                         local allowed = false
 
                         if v.ActivateWhitelist == true then
-                            if Config.Debug == true then
+                            if Config.Debug == true and not processing then
                                 print("\n^0[^3DEBUG^0] ^4tg_carwash^0: Whitelist ^2activated^0.")
                             end
 
@@ -52,7 +52,7 @@ CreateThread(function()
 
                             for _, v in pairs(v.Whitelist) do
                                 if v == PlayerData.job.name then
-                                    if Config.Debug == true then
+                                    if Config.Debug == true and not processing then
                                         print("^0[^3DEBUG^0] ^4tg_carwash^0: Allowed: "..v..".")
                                     end
 
@@ -60,7 +60,7 @@ CreateThread(function()
 
                                     break
                                 else
-                                    if Config.Debug == true then
+                                    if Config.Debug == true and not processing then
                                         print("^0[^3DEBUG^0] ^4tg_carwash^0: ^1Not Allowed^0: "..PlayerData.job.name..".")
                                     end
 
@@ -68,7 +68,7 @@ CreateThread(function()
                                 end
                             end
                         else
-                            if Config.Debug == true then
+                            if Config.Debug == true and not processing then
                                 print("^0[^3DEBUG^0] ^4tg_carwash^0: Whitelist ^1not activated^0.")
                             end
 
@@ -76,20 +76,19 @@ CreateThread(function()
                         end
 
                         if allowed == true then
-                            if Config.Debug == true then
+                            if Config.Debug == true and not processing then
                                 print("^0[^3DEBUG^0] ^4tg_carwash^0: Allowed set ^2true^0.")
                             end
                             
                             allowed = false
-
-                            ESX.ShowHelpNotification("Drücke ~INPUT_CONTEXT~ um die ~b~Waschanlage~s~ zu benutzen.")
+                            ESX.ShowHelpNotification(Translate('press_to_use'))
                             
                             if IsControlJustReleased(0, 38) and not processing then
                                 local playermoney = nil
 
                                 ESX.TriggerServerCallback('tg_carwash:checkmoney', function(cb)
                                     if cb == false then
-                                        ESX.ShowNotification("^1ERROR^0: Es ist ein Fehler beim Überprüfen deines Geldes aufgetreten.","error")
+                                        ESX.ShowNotification(Translate('check_error'),"error")
                                     end
 
                                     if Config.Debug == true then
@@ -115,7 +114,12 @@ CreateThread(function()
                                         processing = true
                                         
                                         TriggerServerEvent('tg_carwash:removemoney', v.Price)
-                                        carwash(vehicle, v.FinishPoint.Coords)
+
+                                        if v.Automatic then
+                                            autocarwash(vehicle, v.FinishPoint.Coords)
+                                        else
+                                            carwash(vehicle, v.EnterPoint.Coords)
+                                        end
                                     else
                                         if Config.Debug == true then
                                             if playermoney ~= nil then
@@ -125,7 +129,7 @@ CreateThread(function()
                                             end
                                         end
 
-                                        ESX.ShowNotification("Du hast ~r~nicht genug Geld~s~! Preis: ~g~"..v.Price.."$~s~ - Dir fehlen: ~g~"..v.Price - (playermoney or 0).."$~s~.","error")
+                                        ESX.ShowNotification(Translate('not_enough_money',v.Price,v.Price - (playermoney or 0)),"error")
                                     end
                                 end)
                             end
@@ -134,7 +138,7 @@ CreateThread(function()
                                 print("^0[^3DEBUG^0] ^4tg_carwash^0: Allowed set ^1false^0.")
                             end
 
-                            ESX.ShowHelpNotification("Du hast ~r~keine Berechtigung~s~ diese ~b~Waschanlage~s~ zu benutzen.")
+                            ESX.ShowHelpNotification(Translate('not_allowed'))
                         end
                     end
                 end
@@ -161,15 +165,15 @@ CreateThread(function()
     end
 end)
 
-function carwash(vehicle, finishpoint)
+function autocarwash(vehicle, finishpoint)
     SetVehicleDirtLevel(vehicle, 15)
-    ESX.ShowNotification("Fahrzeug in Schienen ~r~eingerastet~s~. Fahrzeug ~r~nicht mehr bewegen~s~!","error",5000)
+    ESX.ShowNotification(Translate('vehicle_locked'),"error",5000)
 
     local x, y, z = table.unpack(finishpoint)
 
     TaskVehicleDriveToCoordLongrange(PlayerPedId(), vehicle, x, y, z, 2.0, 16777216, 0.2)
 
-    ActivateWaterParticles(vehicle, finishpoint)
+    ActivateWaterParticles(vehicle, finishpoint, true)
 
     while true do
         Wait(0)
@@ -184,41 +188,80 @@ function carwash(vehicle, finishpoint)
     WashDecalsFromVehicle(vehicle, 1.0)
     StopParticleFxLooped(particleFx, false)
 
-    ESX.ShowNotification("Fahrzeug von Schienen ~g~gelöst~s~. Fahrzeug ~g~kann wieder bewegt~s~ werden!","success",5000)
+    ESX.ShowNotification(Translate('vehicle_unlocked'),"success",5000)
+end
 
-    processing = false
+function carwash(vehicle, enterpoint)
+    SetVehicleDirtLevel(vehicle, 15)
+
+    ActivateWaterParticles(vehicle, enterpoint, false)
+
+    SetVehicleDirtLevel(vehicle, 0.1)
+    WashDecalsFromVehicle(vehicle, 1.0)
+    StopParticleFxLooped(particleFx, false)
 end
 
 -- // TODO: Add Sound Mechanism
-function ActivateWaterParticles(vehicle, targetCoords)
+function ActivateWaterParticles(vehicle, targetCoords, automatic)
     Citizen.CreateThread(function()
         local particleFx = nil
         local particleActive = false
 
         while true do
             Citizen.Wait(0)
-            local coords = GetEntityCoords(vehicle)
-            local distanceToTarget = #(coords - targetCoords)
 
-            if Config.Debug == true then
-                print("\n^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target: ^4"..distanceToTarget.."^0.")
-                print("^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target < 2.1: ^4",distanceToTarget < 2.1,"^0.")
-                print("^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target > 2.1: ^4",distanceToTarget > 2.1,"^0.")
-            end
+            if automatic then
+                local coords = GetEntityCoords(vehicle)
+                local distanceToTarget = #(coords - targetCoords)
 
-            if distanceToTarget > 2.5 then
-                if not particleActive then
-                    particleActive = true
-                    UseParticleFxAssetNextCall("core")
-                    particleFx = StartNetworkedParticleFxLoopedOnEntity("ent_amb_int_waterfall_splash", vehicle, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, false, false, false, false)
+                if Config.Debug == true then
+                    print("\n^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target: ^4"..distanceToTarget.."^0.")
+                    print("^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target < 2.1: ^4",distanceToTarget < 2.1,"^0.")
+                    print("^0[^3DEBUG^0] ^4tg_carwash^0: Distance to target > 2.1: ^4",distanceToTarget > 2.1,"^0.")
+                end
+
+                if distanceToTarget > 2.5 then
+                    if not particleActive then
+                        particleActive = true
+                        UseParticleFxAssetNextCall("core")
+                        particleFx = StartNetworkedParticleFxLoopedOnEntity("ent_amb_int_waterfall_splash", vehicle, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, false, false, false, false)
+                        if Config.Debug == true then
+                            print("^0[^3DEBUG^0] ^4tg_carwash^0: Started Particles^0.")
+                        end
+                    end
                     if Config.Debug == true then
-                        print("^0[^3DEBUG^0] ^4tg_carwash^0: Started Particles^0.")
+                        print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles running^0.")
+                    end
+                else
+                    if Config.Debug == true then
+                        print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles should stop^0.")
+                    end
+                    if particleActive then
+                        if Config.Debug == true then
+                            print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles stopped^0.")
+                        end
+                        particleActive = false
+                        StopParticleFxLooped(particleFx, false)
+                        break
                     end
                 end
-                if Config.Debug == true then
-                    print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles running^0.")
-                end
             else
+                FreezeEntityPosition(vehicle, true)
+                for i = 1,500 do
+                    if not particleActive then
+                        particleActive = true
+                        UseParticleFxAssetNextCall("core")
+                        particleFx = StartNetworkedParticleFxLoopedOnEntity("ent_amb_int_waterfall_splash", vehicle, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, false, false, false, false)
+                        if Config.Debug == true then
+                            print("^0[^3DEBUG^0] ^4tg_carwash^0: Started Particles^0.")
+                        end
+                    end
+                    if Config.Debug == true then
+                        print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles running^0.")
+                    end
+                    Wait(1)
+                end
+
                 if Config.Debug == true then
                     print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles should stop^0.")
                 end
@@ -227,11 +270,14 @@ function ActivateWaterParticles(vehicle, targetCoords)
                         print("^0[^3DEBUG^0] ^4tg_carwash^0: Particles stopped^0.")
                     end
                     particleActive = false
+                    FreezeEntityPosition(vehicle, false)
                     StopParticleFxLooped(particleFx, false)
                     break
                 end
             end
         end
+
+        processing = false
     end)
 end
 
