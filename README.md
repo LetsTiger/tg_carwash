@@ -9,9 +9,7 @@
     <h4 align="center">
     <b>TG Scripts auf Discord: </b><a href="https://discord.gg/X2zxGxY6XY"><img src="https://discordapp.com/api/guilds/1101900001392721931/widget.png?style=shield"></img></a>
     <br/>
-    <b>TG Scripts Dokumentation: </b>COMING SOON
-    <br/>
-    <b>TG Scripts Website: </b>COMING SOON
+    <b>TG Scripts Dokumentation: </b><a href="https://tg-scripts.gitbook.io/tg-docs">TG Docs</a>
     </h4>
     <hr>
 </p>
